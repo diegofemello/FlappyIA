@@ -34,7 +34,7 @@ IMG_BIRD = [
 ]
 
 pygame.font.init()
-FONT_POINTS = pygame.font.SysFont('comicsans', 30)
+FONT_POINTS = pygame.font.SysFont('comicsans', 34)
 
 
 class Bird:
@@ -117,7 +117,7 @@ class Pipe:
     DISTANCE = 200
     VELOCITY = 5
 
-    def __init__(self, x):
+    def __init__(self, x, points):
         self.x = x
         self.height = 0
         self.top_position = 0
@@ -126,16 +126,20 @@ class Pipe:
         self.PIPE_BASE = IMG_PIPE
         self.passed = False
         self.height_definiton()
+        if points < 50:
+            self.points = points/5
+        else:
+            self.points = 10
 
     # Definir a altura do cano
     def height_definiton(self):
-        self.height = random.randrange(0, SCREEN_HEIGHT-250)
+        self.height = random.randrange(100, SCREEN_HEIGHT-250)
         self.top_position = self.height - self.PIPE_TOP.get_height()
         self.base_position = self.height + self.DISTANCE
 
     # Mover o cano
     def move(self):
-        self.x -= self.VELOCITY
+        self.x -= self.VELOCITY + self.points
 
     # Desenhar o cano
     def draw(self, screen):
@@ -191,6 +195,11 @@ def draw_screen(screen, birds, pipes, floor, points):
         pipe.draw(screen)
     text = FONT_POINTS.render(f'Pontuação: {points}', 1, (255, 255, 255))
     screen.blit(text, (SCREEN_WIDTH - 10 - text.get_width(), 10))
+
+    if ai_gaming:
+        text = FONT_POINTS.render(f'Geração: {generation}', 1, (255, 255, 255))
+        screen.blit(text, (10, 10))
+
     floor.draw(screen)
 
     pygame.display.update()
@@ -213,10 +222,26 @@ def game_over(screen, points, running):
                     return running
 
 
-def main():
-    birds = [Bird(SCREEN_WIDTH/2.2, SCREEN_HEIGHT/2.2)]
+def main(genomes, config):
+    global generation
+    generation += 1
+
+    if ai_gaming:
+        networks = []
+        genome_list = []
+        birds = []
+        for _, genome in genomes:
+            network = neat.nn.FeedForwardNetwork.create(genome, config)
+            networks.append(network)
+            genome.fitness = 0
+            genome_list.append(genome)
+            birds.append(Bird(230, 350))
+    else:
+        birds = [Bird(230, 350)]
+
+    # birds = [Bird(SCREEN_WIDTH/2.2, SCREEN_HEIGHT/2.2)]
     floor = Floor(SCREEN_HEIGHT - 50)
-    pipes = [Pipe(SCREEN_HEIGHT - 100)]
+    pipes = [Pipe(SCREEN_HEIGHT - 100, 1)]
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     points = 0
     clock = pygame.time.Clock()
@@ -230,13 +255,37 @@ def main():
                 running = False
                 pygame.quit()
                 quit()
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    for bird in birds:
-                        bird.jump()
+            if not ai_gaming:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        for bird in birds:
+                            bird.jump()
 
-        for bird in birds:
+        pipe_index = 0
+        if len(birds) > 0:
+            if len(pipes) > 1 and birds[0].x > (
+                    pipes[0].x + pipes[0].PIPE_TOP.get_width()):
+                pipe_index = 1
+        else:
+            running = False
+            break
+
+        for i, bird in enumerate(birds):
             bird.move()
+
+            if ai_gaming:
+                # Aumentar o fitness a cada passo
+                genome_list[i].fitness += 0.1
+                output = networks[i].activate(
+                    (bird.y,
+                     abs(bird.y - pipes[pipe_index].height),
+                     abs(bird.y - pipes[pipe_index].base_position))
+                )
+                if output[0] > 0.5:
+                    bird.jump()
+
+        add_pipe = False
+
         floor.move()
 
         add_pipe = False
@@ -246,6 +295,11 @@ def main():
             for i, bird in enumerate(birds):
                 if pipe.colide(bird):
                     birds.pop(i)
+                    if ai_gaming:
+                        genome_list[i].fitness -= 1
+                        genome_list.pop(i)
+                        networks.pop(i)
+
                 if not pipe.passed and pipe.x < bird.x:
                     pipe.passed = True
                     add_pipe = True
@@ -256,20 +310,46 @@ def main():
 
         if add_pipe:
             points += 1
-            pipes.append(Pipe(SCREEN_WIDTH + 100))
+            pipes.append(Pipe(SCREEN_WIDTH + 100, points))
+            if ai_gaming:
+                for genome in genome_list:
+                    genome.fitness += 5
         for pipe in remove_pipe:
             pipes.remove(pipe)
 
         for i, bird in enumerate(birds):
             if (bird.y + bird.img.get_height() >= floor.y or bird.y < 0):
                 birds.pop(i)
+                if ai_gaming:
+                    genome_list.pop(i)
+                    networks.pop(i)
 
-        if len(birds) == 0:
+        if (len(birds) == 0 and not ai_gaming):
             if(game_over(screen, points, running)):
-                main()
+                main(None, None)
 
         draw_screen(screen, birds, pipes, floor, points)
 
 
+def run(config_path):
+    config = neat.config.Config(
+        neat.DefaultGenome,
+        neat.DefaultReproduction,
+        neat.DefaultSpeciesSet,
+        neat.DefaultStagnation,
+        config_path
+    )
+
+    population = neat.Population(config)
+    population.add_reporter(neat.StdOutReporter(True))
+    population.add_reporter(neat.StatisticsReporter())
+
+    if ai_gaming:
+        population.run(main, 50)
+    else:  # Single player
+        main(None, None)
+
+
 if __name__ == '__main__':
-    main()
+    config_path = os.path.join(os.path.dirname(__file__), 'config.ini')
+    run(config_path)
