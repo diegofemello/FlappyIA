@@ -14,6 +14,9 @@ IMG_FLOOR = pygame.transform.scale2x(pygame.image.load(
 IMG_BG = pygame.transform.scale2x(pygame.image.load(
     os.path.join('assets', 'images', 'bg.png')))
 
+IMG_GAME_OVER = pygame.transform.scale(pygame.image.load(
+    os.path.join('assets', 'images', 'game_over.png')), (SCREEN_WIDTH, 120))
+
 IMG_BIRD = [
     pygame.transform.scale2x(pygame.image.load(
         os.path.join('assets', 'images', 'bird1.png'))),
@@ -186,6 +189,26 @@ def draw_screen(screen, birds, pipes, floor, points):
     pygame.display.update()
 
 
+def game_over(screen, points):
+    screen.blit(IMG_GAME_OVER, (0, SCREEN_HEIGHT/2.8))
+    text = FONT_POINTS.render(f'Pontuação: {points}', 1, (255, 255, 255))
+    screen.blit(text, (SCREEN_WIDTH - 10 - text.get_width(), 10))
+    pygame.display.update()
+    pygame.time.delay(1000)
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                pygame.quit()
+                quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    running = False
+                    pygame.quit()
+                    quit()
+
+
 def main():
     birds = [Bird(SCREEN_WIDTH/2.2, SCREEN_HEIGHT/2.2)]
     floor = Floor(SCREEN_HEIGHT - 50)
@@ -236,6 +259,9 @@ def main():
         for i, bird in enumerate(birds):
             if (bird.y + bird.img.get_height() >= floor.y or bird.y < 0):
                 birds.pop(i)
+
+        if len(birds) == 0:
+            game_over(screen, points)
 
         draw_screen(screen, birds, pipes, floor, points)
 
