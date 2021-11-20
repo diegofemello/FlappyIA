@@ -1,9 +1,13 @@
 import pygame
 import os
 import random
+import neat
+
+ai_gaming = True
+generation = 0
 
 SCREEN_WIDTH = 500
-SCREEN_HEIGHT = 800
+SCREEN_HEIGHT = 700
 
 IMG_PIPE = pygame.transform.scale2x(pygame.image.load(
     os.path.join('assets', 'images', 'pipe.png')))
@@ -11,11 +15,14 @@ IMG_PIPE = pygame.transform.scale2x(pygame.image.load(
 IMG_FLOOR = pygame.transform.scale2x(pygame.image.load(
     os.path.join('assets', 'images', 'base.png')))
 
-IMG_BG = pygame.transform.scale2x(pygame.image.load(
-    os.path.join('assets', 'images', 'bg.png')))
+IMG_BG = pygame.transform.scale(
+    pygame.image.load(os.path.join('assets', 'images', 'bg.png')),
+    (SCREEN_WIDTH, SCREEN_HEIGHT)
+)
 
-IMG_GAME_OVER = pygame.transform.scale(pygame.image.load(
-    os.path.join('assets', 'images', 'game_over.png')), (SCREEN_WIDTH, 120))
+IMG_GAME_OVER = pygame.transform.scale(
+    pygame.image.load(os.path.join('assets', 'images', 'game_over.png')),
+    (SCREEN_WIDTH/1.5, 120))
 
 IMG_BIRD = [
     pygame.transform.scale2x(pygame.image.load(
@@ -122,7 +129,7 @@ class Pipe:
 
     # Definir a altura do cano
     def height_definiton(self):
-        self.height = random.randrange(50, SCREEN_HEIGHT-250)
+        self.height = random.randrange(0, SCREEN_HEIGHT-250)
         self.top_position = self.height - self.PIPE_TOP.get_height()
         self.base_position = self.height + self.DISTANCE
 
@@ -189,13 +196,12 @@ def draw_screen(screen, birds, pipes, floor, points):
     pygame.display.update()
 
 
-def game_over(screen, points):
-    screen.blit(IMG_GAME_OVER, (0, SCREEN_HEIGHT/2.8))
+def game_over(screen, points, running):
+    screen.blit(IMG_GAME_OVER, (SCREEN_WIDTH/5, SCREEN_HEIGHT/2.8))
     text = FONT_POINTS.render(f'Pontuação: {points}', 1, (255, 255, 255))
     screen.blit(text, (SCREEN_WIDTH - 10 - text.get_width(), 10))
     pygame.display.update()
     pygame.time.delay(1000)
-    running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -204,9 +210,7 @@ def game_over(screen, points):
                 quit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    running = False
-                    pygame.quit()
-                    quit()
+                    return running
 
 
 def main():
@@ -261,7 +265,8 @@ def main():
                 birds.pop(i)
 
         if len(birds) == 0:
-            game_over(screen, points)
+            if(game_over(screen, points, running)):
+                main()
 
         draw_screen(screen, birds, pipes, floor, points)
 
