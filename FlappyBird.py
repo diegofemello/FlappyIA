@@ -3,11 +3,26 @@ import os
 import random
 import neat
 
+pygame.init()
+
+# pygame.mixer.music.set_volume(0.05)
+# pygame.mixer.music.load(
+#     os.path.join('assets', 'sounds', 'background_music.mp3'))
+# pygame.mixer.music.play(-1)
+
+pipe_passed_sound = pygame.mixer.Sound(os.path.join(
+    'assets', 'sounds', 'smw_jump.wav'))
+
+pipe_collision_sound = pygame.mixer.Sound(os.path.join(
+    'assets', 'sounds', 'smw_bubble_pop.wav'))
+
+
 ai_gaming = True
 generation = 0
 
 SCREEN_WIDTH = 500
 SCREEN_HEIGHT = 700
+
 
 IMG_PIPE = pygame.transform.scale2x(pygame.image.load(
     os.path.join('assets', 'images', 'pipe.png')))
@@ -32,6 +47,12 @@ IMG_BIRD = [
     pygame.transform.scale2x(pygame.image.load(
         os.path.join('assets', 'images', 'bird3.png'))),
 ]
+
+if ai_gaming:
+    pygame.display.set_caption("Flappy - IA Mode")
+else:
+    pygame.display.set_caption("Flappy - Single Player Mode")
+
 
 pygame.font.init()
 FONT_POINTS = pygame.font.SysFont('comicsans', 34)
@@ -295,6 +316,7 @@ def main(genomes, config):
             for i, bird in enumerate(birds):
                 if pipe.colide(bird):
                     birds.pop(i)
+                    pipe_collision_sound.play()
                     if ai_gaming:
                         genome_list[i].fitness -= 1
                         genome_list.pop(i)
@@ -311,6 +333,7 @@ def main(genomes, config):
         if add_pipe:
             points += 1
             pipes.append(Pipe(SCREEN_WIDTH + 100, points))
+            pipe_passed_sound.play()
             if ai_gaming:
                 for genome in genome_list:
                     genome.fitness += 5
@@ -320,6 +343,7 @@ def main(genomes, config):
         for i, bird in enumerate(birds):
             if (bird.y + bird.img.get_height() >= floor.y or bird.y < 0):
                 birds.pop(i)
+                pipe_collision_sound.play()
                 if ai_gaming:
                     genome_list.pop(i)
                     networks.pop(i)
